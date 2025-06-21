@@ -1,13 +1,13 @@
 import pandas as pd
 
 def filter_and_dedup_encoder_data(
-    encoder_csv_path: str,
-    stroke_map_ty_path: str,
-    hit_area_map_path: str,
-    stroke_map_llm_path: str,
-    output_csv_path: str,
-    dedup_keep: str = 'last',
-    sort_by: str = None
+    encoder_csv_path,
+    stroke_map_ty_path,
+    hit_area_map_path,
+    stroke_map_llm_path,
+    output_csv_path,
+    dedup_keep = 'last',
+    sort_by = None
 ) -> None:
 
     stroke_mapping_df = pd.read_csv(stroke_map_ty_path)
@@ -16,7 +16,7 @@ def filter_and_dedup_encoder_data(
     df = pd.read_csv(encoder_csv_path)
     df = df[df['type'].isin(valid_strokes)].copy()
 
-    df = df[['id', 'upper', 'type', 'backhand', 'relabel_hit_area','split']]
+    df = df[['id', 'upper', 'type', 'backhand', 'relabel_hit_area','split',"rally"]]
 
     df['backhand'] = df['backhand'].apply(lambda x: 1 if x == 1 else 0)
     df['player']   = df['upper'].apply(lambda x: 'left player' if x == 1 else 'right player')
@@ -53,7 +53,7 @@ if __name__ == '__main__':
         stroke_map_ty_path='data_processing/mapping/stroke_mapping_name.csv',
         hit_area_map_path='data_processing/mapping/hit_area_mapping.csv',
         stroke_map_llm_path='data_processing/mapping/stroke_mapping_llm.csv',
-        output_csv_path='filtered_encoder_data.csv',
+        output_csv_path='data_processing/processed/filtered_encoder_data.csv',
         dedup_keep='last',       
         sort_by=None             
     )
