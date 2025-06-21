@@ -3,3 +3,7 @@ tc_clip_Dataset/*
 Archive/*
 Output/*
 generated_labels/*
+data_processing/processed
+__pycache__/
+*.py[cod]
+*$py.class
