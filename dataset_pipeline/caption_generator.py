@@ -8,13 +8,6 @@ class CaptionGenerator:
         os.makedirs(self.output_dir, exist_ok=True)
         
     def generate_captions(self, csv_path: str) -> None:
-        """
-        根據標註 CSV 產生 train/val JSON 檔，並生成 val_gt.json 格式：
-        {
-            "annotations": [...],
-            "images": [...]
-        }
-        """
         df = pd.read_csv(csv_path)
         captions = []
         for _, row in tqdm(df.iterrows(), total=len(df), desc="Generating captions"):
@@ -30,11 +23,9 @@ class CaptionGenerator:
             })
         df_caps = pd.DataFrame(captions)
 
-        # 分 train / val
         train_df = df_caps[df_caps['split'] == 'train']
         val_df = df_caps[df_caps['split'] == 'val']
 
-        # 產生 train.json, val.json
         train_data = train_df[['caption', 'image', 'image_id']].to_dict(orient='records')
         val_data = val_df[['caption', 'image', 'image_id']].to_dict(orient='records')
 
@@ -43,7 +34,6 @@ class CaptionGenerator:
         with open(os.path.join(self.output_dir, 'val.json'), 'w', encoding='utf-8') as f:
             json.dump(val_data, f, ensure_ascii=False, indent=4)
 
-        # 產生 val_gt.json
         annotations = []
         for idx, row in enumerate(val_df.itertuples(index=False), start=1):
             annotations.append({
@@ -63,12 +53,13 @@ class CaptionGenerator:
         }
         with open(os.path.join(self.output_dir, 'val_gt.json'), 'w', encoding='utf-8') as f:
             json.dump(val_gt, f, ensure_ascii=False, indent=4)
-            
+        return df_caps
 if __name__ == '__main__':
     # Example usage
-    csv_path = 'filtered_encoder_data.csv'
+    csv_path = 'data_processing/processed/filtered_encoder_data.csv'
     output_dir = 'generated_labels/caption'
 
     generator = CaptionGenerator(output_dir)
-    generator.generate_captions(csv_path)
+    df = generator.generate_captions(csv_path)
+    df.to_csv(os.path.join(output_dir, 'dataset_labels_caption.csv'), index=False)
     print("Caption Json generated successfully.")

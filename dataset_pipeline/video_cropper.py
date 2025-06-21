@@ -50,5 +50,5 @@ class VideoCropper:
 if __name__ == '__main__':
     # Example usage
     cropper = VideoCropper(output_path='Output',video_dir='Dataset/Video')
-    cropper.crop_videos('filtered_encoder_data.csv')
+    cropper.crop_videos('data_processing/processed/filtered_encoder_data.csv')
 
