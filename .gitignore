@@ -7,3 +7,4 @@ data_processing/processed
 __pycache__/
 *.py[cod]
 *$py.class
+Demo.ipynb
