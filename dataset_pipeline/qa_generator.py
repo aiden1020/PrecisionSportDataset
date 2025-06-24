@@ -95,7 +95,8 @@ class QAGenerator:
                                   csv_path,
                                   output_path,
                                   num_questions_per_rally=5,
-                                  val_to_train_ratio= 0.05
+                                  val_to_train_ratio= 0.05,
+                                  use_cot: bool = True
 ):
         df = pd.read_csv(csv_path)
 
@@ -164,13 +165,14 @@ class QAGenerator:
                         selected = random.choice(neg_pool)
                         tmpl = random.choice(template_pool)
                         q = tmpl.format(**format_func(selected))
+                        answer_str    = self.neg_ans_str
                         cot_full = self.make_cot_answer(thinking, self.neg_ans_str)
                         qa_dataset.append({
                             "question_id":   question_id,
                             "image":         chunk_filenames,
                             "question":      q,
                             # "thinking":      thinking,
-                            "answer":       cot_full,
+                            "answer":        cot_full if use_cot else answer_str,
                             # "coT_answer":    cot_full,
                             "is_impossible": True,
                             "chunk_id":      chunk_id,
@@ -221,7 +223,7 @@ class QAGenerator:
                         "image":         chunk_filenames,
                         "question":      q,
                         # "thinking":      thinking,
-                        "answer":        cot_full,
+                        "answer":        cot_full if use_cot else answer_str,
                         # "coT_answer":    cot_full,
                         "is_impossible": False,
                         "chunk_id":      chunk_id,
