@@ -100,7 +100,7 @@ class QAGenerator:
 ):
         df = pd.read_csv(csv_path)
 
-        player_vocab   = ["upper player", "lower player"]
+        player_vocab   = ["upper player", "bottom player"]
         stroke_vocab   = df['stroke_name'].unique().tolist()
         hit_area_vocab = df['hit_area'].dropna().unique().tolist()
 

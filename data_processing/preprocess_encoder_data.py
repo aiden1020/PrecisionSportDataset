@@ -19,7 +19,7 @@ def filter_and_dedup_encoder_data(
     df = df[['id', 'upper', 'type', 'backhand', 'relabel_hit_area','split',"rally"]]
 
     df['backhand'] = df['backhand'].apply(lambda x: 1 if x == 1 else 0)
-    df['player']   = df['upper'].apply(lambda x: 'upper player' if x == 1 else 'lower player')
+    df['player']   = df['upper'].apply(lambda x: 'upper player' if x == 1 else 'bottom player')
 
     df['relabel_hit_area'] = pd.to_numeric(df['relabel_hit_area'], errors='coerce')
     df.dropna(subset=['relabel_hit_area'], inplace=True)
