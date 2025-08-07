@@ -110,57 +110,135 @@ print("Caption CSV generated successfully.")
 
 ## QAGenerator
 
-`QAGenerator` 類別用於根據裁剪後的影片片段與 caption CSV，自動生成 QA dataset，並支援 train/val 分割。
+`QAGenerator` 類別用於生成兩種類型的 QA dataset：基於筆劃的問答和戰術策略問答，支援 Chain-of-Thought (CoT) 推理和自動 train/val 分割。
 
 ### 輸入
 
-* **標註 CSV**：`data_processing/processed/filtered_encoder_data.csv`
-* **Caption CSV**：`generated_labels/caption/dataset_labels_caption.csv`
+* **標註 CSV**：`data_processing/processed/filtered_encoder_data.csv`，必須包含 `id`、`player`、`stroke_name`、`hit_area`、`rally`、`split` 等欄位
 
 ### 輸出
 
-* **QA JSON**：輸出 `generated_labels/QA/qa_dataset.json`
-* **Train/Val**：自動生成同目錄下的 `train.json` 與 `val.json`
+* **筆劃 QA JSON**：基於筆劃的問答數據
+* **戰術 QA JSON**：基於戰術策略的問答數據  
+* **Train/Val**：自動生成訓練集與驗證集分割
 
 ### 功能說明
 
-#### `__init__(templates_with_all: list, templates_player_stroke: list, templates_stroke_only: list, templates_hit_area_only: list, stroke_chunk_size: int, caption_csv_path: str)`
-* 初始化模板、chunk size 及 caption 來源。
+#### `__init__(stroke_chunk_size: int = 10)`
 
-#### `generate_by_rally(csv_path: str, output_path: str, num_questions_per_rally: int, val_to_train_ratio: float)`
-* **用途**：根據 CSV 中的 `id`、`player`、`stroke_name`、`hit_area` 等欄位，依 rally 分 chunk 生成 QA dataset，最後做 train/val 分割。
+* **stroke_chunk_size**：每個 chunk 的筆劃數量，用於分割 rally 數據
+
+#### `generate_by_rally(csv_path: str, output_path: str, num_questions_per_rally: int = 5, val_to_train_ratio: float = 0.05, use_cot: bool = True)`
+
+* **用途**：生成基於筆劃的 QA dataset，包含四種問題類型：
+  * `player_stroke_area`：特定球員在特定區域的特定筆劃
+  * `player_stroke`：特定球員的特定筆劃
+  * `stroke_only`：特定筆劃類型
+  * `hit_area_only`：特定擊球區域的筆劃
 * **參數**：
-  * `csv_path`：來源 CSV
-  * `output_path`：QA JSON 輸出路徑
-  * `num_questions_per_rally`：每 chunk 問題數量
-  * `val_to_train_ratio`：從 val 移回 train 的比率
+  * `csv_path`：來源 CSV 檔案路徑
+  * `output_path`：輸出 JSON 檔案路徑
+  * `num_questions_per_rally`：每個 rally chunk 的問題數量
+  * `val_to_train_ratio`：從驗證集移回訓練集的比率
+  * `use_cot`：是否使用 Chain-of-Thought 推理格式
+* **特點**：
+  * 自動生成正例和負例問答
+  * 支援 CoT 推理，包含分析過程和答案
+  * 依據 rally 分 chunk 處理數據
+
+#### `generate_tactical_qa(csv_path: str, output_path: str, val_to_train_ratio: float = 0.05)`
+
+* **用途**：自動偵測並生成戰術策略相關的 QA dataset，支援以下策略：
+  * **四角戰術** (`four_corner`)：連續攻擊左右後場角落
+  * **網前戰術** (`net_shot`)：連續的網前交換
+  * **後場戰術** (`back_court`)：連續的後場深球
+  * **平球序列** (`flat_shot_sequence`)：連續的平抽球
+  * **反擊戰術** (`counterattack`)：從防守轉攻擊
+    * `upper_player_counter_attack`：上方球員反擊
+    * `bottom_player_counter_attack`：下方球員反擊
+* **參數**：
+  * `csv_path`：來源 CSV 檔案路徑  
+  * `output_path`：輸出 JSON 檔案路徑
+  * `val_to_train_ratio`：資料集分割比率
+* **特點**：
+  * 自動偵測戰術模式
+  * 為每種戰術生成正例和負例問答
+  * 支援重疊區段的合併處理
+  * 智能分 chunk 以符合模型輸入限制
+
+#### `_detect_strategies(df: pd.DataFrame)`
+
+* **用途**：偵測 rally 中的戰術策略模式
+* **偵測策略**：
+  * 基於擊球區域的策略（四角、網前、後場）
+  * 基於筆劃類型的策略（平球序列）
+  * 基於攻防轉換的策略（反擊戰術）
+
+#### `_merge_segments(raw: list, df: pd.DataFrame)`
+
+* **用途**：合併重疊的戰術區段，避免重複標註
+* **智能合併**：自動處理時間重疊的戰術模式
 
 ### 範例用法
 
 ```python
 from dataset_pipeline.qa_generator import QAGenerator
 
-templates_all = ["When does the {player} hits a {stroke} {hit_area}?" ]
-templates_ps  = ["When does the {player} hits a {stroke}?" ]
-templates_s   = ["When is a {stroke} hits?" ]
-templates_h   = ["Which stroke is hit {hit_area}?" ]
+# 初始化 QA 生成器
+qa_gen = QAGenerator(stroke_chunk_size=10)
 
-qa_gen = QAGenerator(
-    templates_with_all=templates_all,
-    templates_player_stroke=templates_ps,
-    templates_stroke_only=templates_s,
-    templates_hit_area_only=templates_h,
-    stroke_chunk_size=5,
-    caption_csv_path='generated_labels/caption/dataset_labels_caption.csv'
-)
-qa_gen.generate_by_rally(
+# 生成筆劃相關 QA
+stroke_qa = qa_gen.generate_by_rally(
     csv_path='data_processing/processed/filtered_encoder_data.csv',
-    output_path='generated_labels/QA/qa_dataset.json',
+    output_path='generated_labels/stroke_qa.json',
     num_questions_per_rally=14,
+    val_to_train_ratio=0.05,
+    use_cot=True
+)
+
+# 生成戰術策略 QA  
+tactical_qa = qa_gen.generate_tactical_qa(
+    csv_path='data_processing/processed/filtered_encoder_data.csv',
+    output_path='generated_labels/tactical_qa.json',
     val_to_train_ratio=0.05
 )
+
+# 合併兩種 QA 數據
+combined_qa = tactical_qa + stroke_qa
+
+# 輸出完整 QA dataset
+import json
+import os
+output_path = 'generated_labels/QA_strategy/combined_qa.json'
+os.makedirs(os.path.dirname(output_path), exist_ok=True)
+with open(output_path, 'w', encoding='utf-8') as f:
+    json.dump(combined_qa, f, ensure_ascii=False, indent=2)
+```
+
+### QA 數據格式
+
+每個問答項目包含以下欄位：
+* `question_id`：問題唯一 ID
+* `image`：相關影片片段檔案列表
+* `question`：問題文本
+* `answer`：答案（支援 CoT 格式）
+* `question_type`：問題類型（筆劃類型或戰術策略）
+* `is_impossible`：是否為負例問題
+* `split`：資料集分割標籤（train/val）
+
+### Chain-of-Thought 答案格式
+
+```
+<thinking>
+I need to identify when [objective]. Therefore, we focus on [required_info].
+stroke 0: [stroke_info_0]
+stroke 1: [stroke_info_1]
+...
+therefore the answer is [conclusion]
+</thinking>
+<answer>[final_answer]</answer>
 ```
 
 ---
 
-> **注意**：請先依序執行 `VideoCropper`、`CaptionGenerator`，確保所有影片片段與 caption 已完整產出，才能順利生成 QA dataset。
+> **注意**：請先依序執行 `VideoCropper`、`CaptionGenerator`，確保所有影片片段與 caption 已完整產出。`QAGenerator` 現在支援兩種獨立的 QA 生成模式：基於筆劃的問答和戰術策略問答，可以單獨或組合使用以生成完整的多模態問答數據集。
